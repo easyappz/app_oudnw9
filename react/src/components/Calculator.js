@@ -6,6 +6,8 @@ const Calculator = () => {
   const [previousValue, setPreviousValue] = useState(null);
   const [operation, setOperation] = useState(null);
   const [waitingForSecondValue, setWaitingForSecondValue] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleNumberClick = (value) => {
     if (display === '0' && value !== '.') {
@@ -32,35 +34,58 @@ const Calculator = () => {
     setPreviousValue(null);
     setOperation(null);
     setWaitingForSecondValue(false);
+    setError('');
   };
 
-  const handleEqual = () => {
+  const handleEqual = async () => {
     if (previousValue === null || operation === null) return;
 
     const currentValue = parseFloat(display);
-    let result = 0;
+    let operationType = '';
 
     if (operation === '+') {
-      result = previousValue + currentValue;
+      operationType = 'add';
     } else if (operation === '-') {
-      result = previousValue - currentValue;
+      operationType = 'subtract';
     } else if (operation === '*') {
-      result = previousValue * currentValue;
+      operationType = 'multiply';
     } else if (operation === '/') {
-      if (currentValue === 0) {
-        setDisplay('Error');
+      operationType = 'divide';
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/calculate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          num1: previousValue,
+          num2: currentValue,
+          operation: operationType,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setDisplay(data.result.toString());
         setPreviousValue(null);
         setOperation(null);
         setWaitingForSecondValue(false);
-        return;
+      } else {
+        setError(data.error || 'Calculation failed');
+        setDisplay('Error');
       }
-      result = previousValue / currentValue;
+    } catch (err) {
+      setError('Network error or server is unavailable');
+      setDisplay('Error');
+    } finally {
+      setLoading(false);
     }
-
-    setDisplay(result.toString());
-    setPreviousValue(null);
-    setOperation(null);
-    setWaitingForSecondValue(false);
   };
 
   const buttons = [
@@ -82,6 +107,11 @@ const Calculator = () => {
           sx={{ marginBottom: 2, backgroundColor: '#f0f0f0', borderRadius: 1 }}
           inputProps={{ style: { textAlign: 'right', fontSize: '2rem' } }}
         />
+        {error && (
+          <Typography variant="body2" color="error" sx={{ marginBottom: 2, textAlign: 'center' }}>
+            {error}
+          </Typography>
+        )}
         <Grid container spacing={1}>
           {buttons.map((btn) => (
             <Grid item xs={3} key={btn}>
@@ -89,6 +119,7 @@ const Calculator = () => {
                 variant={btn === '=' ? 'contained' : 'outlined'}
                 color={['+', '-', '*', '/'].includes(btn) ? 'secondary' : btn === 'C' ? 'error' : 'primary'}
                 fullWidth
+                disabled={loading && btn === '='}
                 sx={{ height: 60, fontSize: '1.2rem', borderRadius: 2 }}
                 onClick={() => {
                   if (btn === 'C') handleClear();
