@@ -11,6 +11,10 @@ const Calculator = () => {
     if (display === '0' && value !== '.') {
       setDisplay(value);
     } else {
+      // Prevent multiple decimal points
+      if (value === '.' && display.includes('.')) {
+        return;
+      }
       setDisplay(display + value);
     }
     setWaitingForSecondValue(false);
